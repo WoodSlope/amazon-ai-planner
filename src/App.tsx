@@ -324,8 +324,14 @@ function extractJsonObject(text: string) {
   return match[0]
 }
 
-async function callPlannerApi(config: ApiConfig, draft: ProductDraft, includeAPlus: boolean) {
-  const baseUrl = config.baseUrl.replace(/\/+$/, '')
+function getChatCompletionsUrl(baseUrl: string) {
+  const trimmed = baseUrl.trim().replace(/\/+$/, '')
+  if (/\/chat\/completions$/i.test(trimmed)) return trimmed
+  return `${trimmed}/chat/completions`
+}
+
+async function requestChatCompletion(config: ApiConfig, body: Record<string, unknown>) {
+  const baseUrl = config.baseUrl.trim()
   const model = config.model.trim()
   const apiKey = config.apiKey.trim()
 
@@ -333,7 +339,7 @@ async function callPlannerApi(config: ApiConfig, draft: ProductDraft, includeAPl
   if (!model) throw new Error('请填写策划模型。')
   if (!apiKey) throw new Error('请填写 API Key。')
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  return fetch(getChatCompletionsUrl(baseUrl), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -341,16 +347,42 @@ async function callPlannerApi(config: ApiConfig, draft: ProductDraft, includeAPl
     },
     body: JSON.stringify({
       model,
-      temperature: 0.4,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: 'You output strict JSON only. Do not use markdown fences.' },
-        { role: 'user', content: buildAiPlannerPrompt(draft, includeAPlus) },
-      ],
+      ...body,
     }),
   })
+}
 
-  const payload = await response.json().catch(() => null)
+async function readApiResponse(response: Response) {
+  const text = await response.text()
+  if (!text) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return { message: text }
+  }
+}
+
+async function callPlannerApi(config: ApiConfig, draft: ProductDraft, includeAPlus: boolean) {
+  const messages = [
+    { role: 'system', content: 'You output strict JSON only. Do not use markdown fences.' },
+    { role: 'user', content: buildAiPlannerPrompt(draft, includeAPlus) },
+  ]
+  let response = await requestChatCompletion(config, {
+    temperature: 0.4,
+    response_format: { type: 'json_object' },
+    messages,
+  })
+  let payload = await readApiResponse(response)
+
+  const apiErrorMessage = String(payload?.error?.message || payload?.message || '')
+  if (!response.ok && /response_format|json_object/i.test(apiErrorMessage)) {
+    response = await requestChatCompletion(config, {
+      temperature: 0.4,
+      messages,
+    })
+    payload = await readApiResponse(response)
+  }
+
   if (!response.ok) {
     const message = payload?.error?.message || payload?.message || `${response.status} ${response.statusText}`
     throw new Error(`AI 策划失败：${message}`)
@@ -362,6 +394,25 @@ async function callPlannerApi(config: ApiConfig, draft: ProductDraft, includeAPl
   const cards = normalizeCards(parsed)
   if (!cards.length) throw new Error('AI 返回了 JSON，但没有有效策划卡片。')
   return cards
+}
+
+async function testPlannerApi(config: ApiConfig) {
+  const response = await requestChatCompletion(config, {
+    temperature: 0,
+    max_tokens: 24,
+    messages: [
+      { role: 'system', content: 'Reply with OK only.' },
+      { role: 'user', content: 'ping' },
+    ],
+  })
+  const payload = await readApiResponse(response)
+  if (!response.ok) {
+    const message = payload?.error?.message || payload?.message || `${response.status} ${response.statusText}`
+    throw new Error(`连接测试失败：${message}`)
+  }
+  const content = payload?.choices?.[0]?.message?.content
+  if (typeof content !== 'string') throw new Error('连接成功，但响应格式不是 OpenAI Chat Completions。')
+  return content
 }
 
 function getPlannerErrorMessage(error: unknown) {
@@ -379,7 +430,7 @@ function getPlannerErrorMessage(error: unknown) {
       '3. Base URL 写错，或接口不是 OpenAI Chat Completions 兼容格式。',
       '4. 网络无法访问该接口。',
       '',
-      '解决方向：使用支持 CORS 的 API 中转地址，或给项目增加一个后端代理。官方 OpenAI API 通常不适合直接从浏览器页面调用。',
+      '如果你用的是中转 API，重点确认：中转服务允许浏览器跨域、Base URL 使用 https、地址不要重复写 /chat/completions。',
     ].join('\n')
   }
 
@@ -430,6 +481,8 @@ export default function App() {
   const [aiPlans, setAiPlans] = useState<PlanCard[] | null>(null)
   const [plannerStatus, setPlannerStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
   const [plannerMessage, setPlannerMessage] = useState('')
+  const [apiTestStatus, setApiTestStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  const [apiTestMessage, setApiTestMessage] = useState('')
   const templatePlans = useMemo(() => buildPlans(draft, includeAPlus), [draft, includeAPlus])
   const plans = aiPlans?.length ? aiPlans : templatePlans
   const visiblePlans = plans.filter((plan) => activeKind === 'all' || plan.kind === activeKind)
@@ -452,6 +505,19 @@ export default function App() {
     setShowApiModal(false)
     setCopiedKey('api-config')
     window.setTimeout(() => setCopiedKey((current) => (current === 'api-config' ? '' : current)), 1200)
+  }
+
+  const testApiConfig = async () => {
+    setApiTestStatus('running')
+    setApiTestMessage('正在测试中转 API...')
+    try {
+      await testPlannerApi(apiConfig)
+      setApiTestStatus('done')
+      setApiTestMessage(`连接可用。当前请求地址：${getChatCompletionsUrl(apiConfig.baseUrl)}`)
+    } catch (error) {
+      setApiTestStatus('error')
+      setApiTestMessage(getPlannerErrorMessage(error))
+    }
   }
 
   const generatePlan = () => {
@@ -632,11 +698,20 @@ export default function App() {
             <TextInput label="Base URL" value={apiConfig.baseUrl} placeholder="https://api.openai.com/v1" onChange={(value) => setApiConfig((current) => ({ ...current, baseUrl: value }))} />
             <TextInput label="API Key" type="password" value={apiConfig.apiKey} placeholder="sk-..." onChange={(value) => setApiConfig((current) => ({ ...current, apiKey: value }))} />
             <TextInput label="策划模型" value={apiConfig.model} placeholder="gpt-4.1 / gpt-5 / deepseek-chat" onChange={(value) => setApiConfig((current) => ({ ...current, model: value }))} />
+            <div className="api-path-preview">
+              实际请求：{apiConfig.baseUrl.trim() ? getChatCompletionsUrl(apiConfig.baseUrl) : '请先填写 Base URL'}
+            </div>
             <div className="modal-note">
               <strong>说明</strong>
-              <span>Base URL 只是接口地址；真正调用还需要 API Key 和模型。配置会保存在当前浏览器 localStorage，不会上传到 GitHub。</span>
+              <span>Base URL 可以填 https://.../v1，也可以直接填 https://.../v1/chat/completions。配置会保存在当前浏览器 localStorage，不会上传到 GitHub。</span>
             </div>
+            {apiTestMessage && (
+              <p className={`status-message ${apiTestStatus === 'error' ? 'error' : 'ok'}`}>{apiTestMessage}</p>
+            )}
             <div className="modal-actions">
+              <button type="button" className="button" onClick={testApiConfig} disabled={apiTestStatus === 'running'}>
+                {apiTestStatus === 'running' ? '测试中...' : '测试连接'}
+              </button>
               <button type="button" className="button success" onClick={saveApiConfig}>
                 保存配置
               </button>

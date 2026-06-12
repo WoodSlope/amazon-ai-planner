@@ -531,6 +531,18 @@ h1 {
   line-height: 1.6;
 }
 
+.api-path-preview {
+  margin-top: 12px;
+  padding: 9px 10px;
+  border: 1px solid #d9e0e4;
+  border-radius: 8px;
+  background: #f6f8f9;
+  color: #52606b;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .modal-actions {
   justify-content: flex-end;
   margin-top: 16px;
