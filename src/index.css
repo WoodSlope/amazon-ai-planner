@@ -72,7 +72,9 @@ h1 {
 
 .header-actions,
 .card-actions,
-.api-actions {
+.api-actions,
+.generate-panel,
+.modal-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -103,6 +105,10 @@ h1 {
   border-color: #2f6f5e;
   background: #2f6f5e;
   color: #ffffff;
+}
+
+.button.wide {
+  width: 100%;
 }
 
 .button.small {
@@ -212,8 +218,14 @@ h1 {
   box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.12);
 }
 
-.api-actions {
+.api-actions,
+.generate-panel {
   margin-top: 14px;
+}
+
+.generate-panel {
+  padding-top: 14px;
+  border-top: 1px solid #edf1f3;
 }
 
 .status-message {
@@ -461,6 +473,76 @@ h1 {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.api-modal {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid #d9e0e4;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 18px;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #edf1f3;
+}
+
+.modal-head h2 {
+  font-size: 20px;
+}
+
+.modal-head p {
+  margin-top: 6px;
+  color: #64717d;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.icon-button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5dc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #52606b;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.modal-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #ecd2a7;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #6d4c12;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+  margin-top: 16px;
 }
 
 @media (max-width: 980px) {

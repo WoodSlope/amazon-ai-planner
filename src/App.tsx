@@ -385,6 +385,7 @@ function formatPlanForCopy(plan: PlanCard) {
 export default function App() {
   const [draft, setDraft] = useState<ProductDraft>(DEFAULT_DRAFT)
   const [apiConfig, setApiConfig] = useState<ApiConfig>(() => loadApiConfig())
+  const [showApiModal, setShowApiModal] = useState(false)
   const [includeAPlus, setIncludeAPlus] = useState(true)
   const [activeKind, setActiveKind] = useState<'all' | PlanKind>('all')
   const [copiedKey, setCopiedKey] = useState('')
@@ -394,6 +395,7 @@ export default function App() {
   const templatePlans = useMemo(() => buildPlans(draft, includeAPlus), [draft, includeAPlus])
   const plans = aiPlans?.length ? aiPlans : templatePlans
   const visiblePlans = plans.filter((plan) => activeKind === 'all' || plan.kind === activeKind)
+  const hasApiConfig = Boolean(apiConfig.baseUrl.trim() && apiConfig.apiKey.trim() && apiConfig.model.trim())
 
   const updateDraft = (key: keyof ProductDraft, value: string) => {
     setDraft((current) => ({ ...current, [key]: value }))
@@ -409,8 +411,19 @@ export default function App() {
 
   const saveApiConfig = () => {
     window.localStorage.setItem(API_CONFIG_STORAGE_KEY, JSON.stringify(apiConfig))
+    setShowApiModal(false)
     setCopiedKey('api-config')
     window.setTimeout(() => setCopiedKey((current) => (current === 'api-config' ? '' : current)), 1200)
+  }
+
+  const generatePlan = () => {
+    if (hasApiConfig) {
+      void runAiPlanner()
+      return
+    }
+    useTemplatePlans()
+    setPlannerStatus('done')
+    setPlannerMessage(`已使用内置亚马逊图片规范模板生成 ${templatePlans.length} 张策划卡片。`)
   }
 
   const runAiPlanner = async () => {
@@ -459,7 +472,7 @@ export default function App() {
             <div className="panel-head">
               <div>
                 <h2>产品输入</h2>
-                <p>填得越具体，卡片里的 Prompt 越稳。</p>
+                <p>填好资料后点击生成。未配置 API 时使用内置规范模板；配置 API 后调用 AI 生成更贴合的策划。</p>
               </div>
               <label className="checkbox-line">
                 <input type="checkbox" checked={includeAPlus} onChange={(event) => setIncludeAPlus(event.target.checked)} />
@@ -474,25 +487,20 @@ export default function App() {
             <TextInput label="目标人群" value={draft.audience} onChange={(value) => updateDraft('audience', value)} />
             <TextArea label="视觉风格" rows={3} value={draft.style} onChange={(value) => updateDraft('style', value)} />
             <TextArea label="禁用 / 风险限制" rows={4} value={draft.forbidden} onChange={(value) => updateDraft('forbidden', value)} />
-          </section>
 
-          <section className="panel">
-            <div className="panel-head single">
-              <h2>AI 策划 API</h2>
-              <p>不配置也能使用模板策划；配置后可让 AI 根据产品资料生成更贴合的卡片。</p>
-            </div>
-            <TextInput label="Base URL" value={apiConfig.baseUrl} placeholder="https://api.openai.com/v1" onChange={(value) => setApiConfig((current) => ({ ...current, baseUrl: value }))} />
-            <TextInput label="API Key" type="password" value={apiConfig.apiKey} placeholder="sk-..." onChange={(value) => setApiConfig((current) => ({ ...current, apiKey: value }))} />
-            <TextInput label="策划模型" value={apiConfig.model} placeholder="gpt-4.1 / gpt-5 / deepseek-chat" onChange={(value) => setApiConfig((current) => ({ ...current, model: value }))} />
-            <div className="api-actions">
-              <button type="button" className="button success" onClick={runAiPlanner} disabled={plannerStatus === 'running'}>
-                {plannerStatus === 'running' ? 'AI 策划中...' : '生成 AI 策划'}
+            <div className="generate-panel">
+              <button type="button" className="button success wide" onClick={generatePlan} disabled={plannerStatus === 'running'}>
+                {plannerStatus === 'running'
+                  ? 'AI 策划中...'
+                  : hasApiConfig
+                    ? '生成 AI 策划'
+                    : '用内置规范生成策划'}
               </button>
-              <button type="button" className="button" onClick={saveApiConfig}>
-                {copiedKey === 'api-config' ? '已保存' : '保存配置'}
+              <button type="button" className="button wide" onClick={() => setShowApiModal(true)}>
+                {hasApiConfig ? 'API 已配置' : '配置 API'}
               </button>
-              <button type="button" className="button" onClick={useTemplatePlans}>
-                使用模板
+              <button type="button" className="button wide" onClick={useTemplatePlans}>
+                重置为模板结果
               </button>
             </div>
             {plannerMessage && (
@@ -576,6 +584,35 @@ export default function App() {
           </div>
         </section>
       </main>
+
+      {showApiModal && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setShowApiModal(false)}>
+          <section className="api-modal" role="dialog" aria-modal="true" aria-labelledby="api-modal-title" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-head">
+              <div>
+                <h2 id="api-modal-title">API 配置</h2>
+                <p>这里配置的是“策划 API”，用于生成图片策划和 Prompt，不会直接生图。</p>
+              </div>
+              <button type="button" className="icon-button" aria-label="关闭" onClick={() => setShowApiModal(false)}>×</button>
+            </div>
+            <TextInput label="Base URL" value={apiConfig.baseUrl} placeholder="https://api.openai.com/v1" onChange={(value) => setApiConfig((current) => ({ ...current, baseUrl: value }))} />
+            <TextInput label="API Key" type="password" value={apiConfig.apiKey} placeholder="sk-..." onChange={(value) => setApiConfig((current) => ({ ...current, apiKey: value }))} />
+            <TextInput label="策划模型" value={apiConfig.model} placeholder="gpt-4.1 / gpt-5 / deepseek-chat" onChange={(value) => setApiConfig((current) => ({ ...current, model: value }))} />
+            <div className="modal-note">
+              <strong>说明</strong>
+              <span>Base URL 只是接口地址；真正调用还需要 API Key 和模型。配置会保存在当前浏览器 localStorage，不会上传到 GitHub。</span>
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="button success" onClick={saveApiConfig}>
+                保存配置
+              </button>
+              <button type="button" className="button" onClick={() => setShowApiModal(false)}>
+                取消
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   )
 }
