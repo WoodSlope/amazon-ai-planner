@@ -364,6 +364,44 @@ async function callPlannerApi(config: ApiConfig, draft: ProductDraft, includeAPl
   return cards
 }
 
+function getPlannerErrorMessage(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : String(error)
+  const message = rawMessage.trim() || '未知错误'
+  const lower = message.toLowerCase()
+
+  if (lower.includes('failed to fetch') || lower.includes('load failed') || lower.includes('networkerror')) {
+    return [
+      '浏览器没有连上 API 接口。',
+      '',
+      '常见原因：',
+      '1. API 服务不允许浏览器跨域调用（CORS）。',
+      '2. 当前页面是 HTTPS，但 Base URL 是 HTTP，被浏览器拦截。',
+      '3. Base URL 写错，或接口不是 OpenAI Chat Completions 兼容格式。',
+      '4. 网络无法访问该接口。',
+      '',
+      '解决方向：使用支持 CORS 的 API 中转地址，或给项目增加一个后端代理。官方 OpenAI API 通常不适合直接从浏览器页面调用。',
+    ].join('\n')
+  }
+
+  if (/401|unauthorized|invalid api key|incorrect api key|forbidden/i.test(message)) {
+    return `API Key 或权限有问题：${message}`
+  }
+
+  if (/404|not found/i.test(message)) {
+    return `接口路径可能不对。当前页面会请求 {Base URL}/chat/completions：${message}`
+  }
+
+  if (/model|does not exist|unsupported/i.test(message)) {
+    return `模型名可能不对，或该接口不支持此模型：${message}`
+  }
+
+  if (/response_format|json_object|json/i.test(message)) {
+    return `该接口可能不支持 JSON Object 输出格式：${message}`
+  }
+
+  return message
+}
+
 function formatPlanForCopy(plan: PlanCard) {
   return [
     `【${plan.slot}｜${plan.title}】`,
@@ -436,7 +474,7 @@ export default function App() {
       setPlannerMessage(`AI 策划完成，共 ${cards.length} 张卡片。`)
     } catch (error) {
       setPlannerStatus('error')
-      setPlannerMessage(error instanceof Error ? error.message : String(error))
+      setPlannerMessage(getPlannerErrorMessage(error))
     }
   }
 
