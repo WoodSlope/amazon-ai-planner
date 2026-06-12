@@ -35,18 +35,11 @@ button:disabled {
 .app-header {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
-  align-items: flex-end;
-  padding: 28px max(20px, calc((100vw - 1180px) / 2)) 24px;
+  gap: 16px;
+  align-items: center;
+  padding: 12px max(20px, calc((100vw - 1180px) / 2));
   border-bottom: 1px solid #d9e0e4;
   background: #ffffff;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: #2f6f5e;
-  font-size: 13px;
-  font-weight: 800;
 }
 
 h1,
@@ -58,16 +51,8 @@ p {
 }
 
 h1 {
-  font-size: clamp(28px, 4vw, 42px);
-  line-height: 1.12;
-}
-
-.header-copy {
-  margin-top: 10px;
-  max-width: 760px;
-  color: #64717d;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 20px;
+  line-height: 1.2;
 }
 
 .header-actions,
@@ -81,7 +66,7 @@ h1 {
 }
 
 .button {
-  min-height: 38px;
+  min-height: 34px;
   padding: 0 13px;
   border: 1px solid #cbd5dc;
   border-radius: 8px;

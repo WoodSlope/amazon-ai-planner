@@ -450,11 +450,7 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">策划版 MVP</p>
-          <h1>亚马逊图片策划工作台</h1>
-          <p className="header-copy">
-            基于批量 7+5 提示词精简：先做策划和 Prompt 分发，不接生图 API。每张图片的生图信息都可以单独复制。
-          </p>
+          <h1>亚马逊图片策划器</h1>
         </div>
         <div className="header-actions">
           <button type="button" className="button primary" onClick={copyAll}>
