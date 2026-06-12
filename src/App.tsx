@@ -453,6 +453,9 @@ export default function App() {
           <h1>亚马逊图片策划器</h1>
         </div>
         <div className="header-actions">
+          <button type="button" className={`button ${hasApiConfig ? 'configured' : ''}`} onClick={() => setShowApiModal(true)}>
+            {hasApiConfig ? 'API 已配置' : '配置 API'}
+          </button>
           <button type="button" className="button primary" onClick={copyAll}>
             {copiedKey === 'all' ? '已复制全部' : '复制完整策划'}
           </button>
@@ -491,9 +494,6 @@ export default function App() {
                   : hasApiConfig
                     ? '生成 AI 策划'
                     : '用内置规范生成策划'}
-              </button>
-              <button type="button" className="button wide" onClick={() => setShowApiModal(true)}>
-                {hasApiConfig ? 'API 已配置' : '配置 API'}
               </button>
               <button type="button" className="button wide" onClick={useTemplatePlans}>
                 重置为模板结果

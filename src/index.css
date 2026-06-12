@@ -92,6 +92,12 @@ h1 {
   color: #ffffff;
 }
 
+.button.configured {
+  border-color: #b8e0cb;
+  background: #ecf9f1;
+  color: #246247;
+}
+
 .button.wide {
   width: 100%;
 }
